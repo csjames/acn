@@ -12,5 +12,6 @@
 
 *I can't put a bootloader on the fucking thing?*
 - Add a 10K pullup between D10 and VCC (SS of RFM69)
+- Walk away.
 *Everything is fine, however the radio module cannot transmit?*
 - The breadboards seem to stop transmission being possible. This could be useful when testing mesh drops
