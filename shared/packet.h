@@ -1,3 +1,4 @@
+#include <stdint.h>
 
 #define MAX_PAYLOAD 		60
 #define PACKET_SIZE			61
@@ -8,11 +9,11 @@
 
 
 typedef struct {
-	uint8_t packet_type
-	uint8_t data[MAX_PAYLOAD]
+	uint8_t packet_type;
+	uint8_t data[MAX_PAYLOAD];
 } rfpacket_t;
 
 
-void unmarshal_packet (rfpacket *p, uint8_t msg[61]);
+void unmarshal_packet (rfpacket_t *p, uint8_t msg[61]);
 
 void marshal_packet (uint8_t msg[61], rfpacket_t *p);
