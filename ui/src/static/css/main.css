@@ -13,3 +13,9 @@ html * {
 	overflow: auto;
 	margin-top: 10px;
 }
+
+.superUser {
+    position: absolute;
+    top: 8px;
+    right: 16px;
+}

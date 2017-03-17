@@ -3,25 +3,32 @@
 <link rel="stylesheet" type="text/css" href="/css/main.css">
 
 <script src="/js/cytoscape.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jscolor/2.0.4/jscolor.js"></script>
-<script
-  src="https://code.jquery.com/jquery-3.1.1.min.js"
-  integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8="
-  crossorigin="anonymous"></script>
-
+<script src="/js/jscolor.min.js"></script>
+<script src="/js/mqttws31-min.js"></script>
+<script src="/js/jquery.min.js"></script>
 <body>
 <div class="container">
 	<h2>Mesh Network Visualisation</h2>
 	<div>
-		<select id="nodeid">
+		<select id="nodeids">
 		  <option value="1">Node 1</option>
 		  <option value="2">Node 2</option>
 		  <option value="3">Node 3</option>
 		  <option value="4">Node 4</option>
 		</select>
 		<input id="color" class="jscolor" value="ab2567">
-		<button class="button">Send Value</button>
-		<button class="button">Request Value</button>
+		<button id="sendColor" class="button">Send Color</button>
+		<button id="requestColor" class="button">Request Message</button>
+		<button id="broadcastColor" class="button">Broadcast Message</button>
+
+	</div>
+	<div class="superUser">
+		<div>
+			<button id="clearNodes" class="button">Clear Nodes</button>
+		</div>
+		<div>
+		<button id="clearMessages" class="button">Clear Messages</button>
+		</div>
 	</div>
 	<div id="mesh" class="meshPanel">
 	</div>
