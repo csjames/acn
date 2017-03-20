@@ -1,6 +1,7 @@
 #include "packet.h"
 #include <string.h>
 #include <stdlib.h>
+#include <Arduino.h>
 
 rfheader_t history[HISTORY_SIZE];
 int hIndex = 0;
@@ -19,7 +20,7 @@ bool unmarshal_packet (rfpacket_t *p, uint8_t msg[PACKET_SIZE]){
     return duplicate_packet(p);
 }
 
-void marshal_packet (uint8_t msg[PACKET_SIZE], rfpacket_t *p){
+bool marshal_packet (uint8_t msg[PACKET_SIZE], rfpacket_t *p){
 	msg[0] = p->packet_type;
     msg[1] = p->node_type;
     
@@ -33,6 +34,8 @@ void marshal_packet (uint8_t msg[PACKET_SIZE], rfpacket_t *p){
     }
     
 	memcpy(&msg[PACKET_SIZE-MAX_PAYLOAD],&p->data[0], MAX_PAYLOAD);
+    
+    return duplicate_packet(p);
 }
 
 bool duplicate_packet(rfheader_t *inc) {
@@ -51,35 +54,83 @@ void initPacket(unsigned long y) {
 
 
 
-struct NODE {
-    rfpacket_t *data;
-    NODE *next;
-};
+//struct NODE {
+//    rfpacket_t *data;
+//    NODE *next;
+//};
 
-int queueSize;
-NODE *head;
-NODE *tail;
+rfpacket_t outbound[OUTBOUND_SIZE];
+int queueSize = 0;
+int queueIndex = -1;
+//NODE *head;
+//NODE *tail;
 
-void push(rfpacket_t *packet) {
-    NODE *newNode = (NODE*) malloc(sizeof (NODE));
-    if(queueSize==0) {
-        head = newNode;
-        tail = newNode;
-    }
-    else {
-        tail->next = newNode;
-    }
-    queueSize++;
+void enqueue(rfpacket_t *packet) {
+    queueIndex = (++queueIndex)%OUTBOUND_SIZE;
+    outbound[queueIndex].source = packet->source;
+    outbound[queueIndex].destination = packet->destination;
+    outbound[queueIndex].uid = packet->uid;
+    outbound[queueIndex].packet_type = packet->packet_type;
+    outbound[queueIndex].node_type = packet->node_type;
+    memcpy(&outbound[queueIndex].data[0],&packet->data[0], MAX_PAYLOAD);
+    if(queueSize<OUTBOUND_SIZE)
+        queueSize++;
+    else
+        Serial.println("Queue full");
 }
-
 rfpacket_t* dequeue() {
     if(queueSize>0) {
-        rfpacket_t *data = head->data;
-        head = head->next;
+        int outIndex = queueIndex;
+        if(queueIndex<1)
+            queueIndex = OUTBOUND_SIZE;
+        queueIndex--;
         queueSize--;
-        free (head);
-        return data;
+        return &outbound[outIndex];
     }
-    else
+    else {
+        Serial.println("Returning 0. Maybe check size before deque?");
         return 0;
+    }
+}
+
+//void enqueue(rfpacket_t *packet) {
+//    rfpacket_t *newPkt = (rfpacket_t *) malloc(sizeof (rfpacket_t));
+//    
+//    newPkt->source = packet->source;
+//    newPkt->destination = packet->destination;
+//    newPkt->uid = packet->uid;
+//    newPkt->packet_type = packet->packet_type;
+//    newPkt->node_type = packet->node_type;
+//    memcpy(&newPkt->data[0],&packet->data[0], MAX_PAYLOAD);
+//    Serial.println("Memcopied");
+//    NODE *newNode = (NODE*) malloc(sizeof (NODE));
+//    newNode->data = newPkt;
+//    if(queueSize==0) {
+//        head = newNode;
+//        tail = newNode;
+//    }
+//    else {
+//        tail->next = newNode;
+//    }
+//    queueSize++;
+//    Serial.println("Enqued");
+//}
+
+//rfpacket_t* dequeue() {
+//    if(queueSize>0) {
+//        rfpacket_t *data = head->data;
+//        head = head->next;
+//        queueSize--;
+//        free (head);
+//        Serial.println("Returning data");
+//        return data;
+//    }
+//    else {
+//        Serial.println("Returning 0");
+//        return 0;
+//    }
+//}
+
+int getQueueSize() {
+    return queueSize;
 }

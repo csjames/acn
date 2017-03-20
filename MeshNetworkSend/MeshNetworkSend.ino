@@ -1,6 +1,7 @@
 #include <RFM69.h>         
 #include <RFM69_ATC.h>        
-#include <SPI.h>     
+#include <SPI.h>   
+#include <MemoryFree.h>  
 #include "packet.h"
 
 #define NODEID        1 //unique for each node on same network
@@ -59,12 +60,13 @@ void setup() {
   char buff[50];
   sprintf(buff, "\nListening at %d Mhz...", FREQUENCY==RF69_433MHZ ? 433 : FREQUENCY==RF69_868MHZ ? 868 : 915);
   Serial.println(buff);
+  Serial.print("Self ID: ");
+  Serial.println(NODEID);
 }
 
 byte ackCount=0;
 uint32_t packetCount = 0;
 
-uint8_t messageToSend = 0;
 uint8_t currentIndex = 0;
 
 void loop() {
@@ -91,14 +93,12 @@ void loop() {
     char buf[12];
     itoa(outPkt->destination, buf, 10);
     Serial.println(buf);
-  
-    Serial.println("Sending Packet: ");
-    printPacket(outPkt);
-    
-    messageToSend = 1;
+
+    enqueue(outPkt);
+    Serial.println("Enque :)");
   }
 
-  if (radio.receiveDone() && messageToSend!=1)
+  if (radio.receiveDone()) //Bug may be here case: pause while sending
   {
     Serial.print(++packetCount);
     Serial.print('[');Serial.print(radio.SENDERID, DEC);Serial.print("] ");
@@ -121,19 +121,28 @@ void loop() {
     if (inPkt->packet_type == BCAST_PKT) {
       changeColour(inPkt);
       Blink(LED, 3);
+      if(!packetSeen) {
+        outPkt->packet_type = ACK_PKT;
+        outPkt->destination = inPkt->source;
+        outPkt->source = NODEID;
+        memcpy(&outPkt->data[0], &inPkt->data[0], MAX_PAYLOAD);
+        Serial.println("Should repeat broadcast");
+        enqueue(outPkt);
+      }
     }
 
     // is packet for us, or someone else
     if(inPkt->packet_type == UNICAST_PKT && inPkt->destination == NODEID) {
       //change our own colour
-      changeColour(inPkt);
-      outPkt->packet_type = ACK_PKT;
-      outPkt->destination = inPkt->source;
-      outPkt->source = NODEID;
-      memcpy(&outPkt->data[0], &inPkt->data[0], MAX_PAYLOAD);
-      Serial.println("Should send ack");
-      printPacket(outPkt);
-      messageToSend = 1;
+      if(!packetSeen) {
+        changeColour(inPkt);
+        outPkt->packet_type = ACK_PKT;
+        outPkt->destination = inPkt->source;
+        outPkt->source = NODEID;
+        memcpy(&outPkt->data[0], &inPkt->data[0], MAX_PAYLOAD);
+        Serial.println("Should send ack");
+        enqueue(outPkt);
+      }
     }
     else if(inPkt->packet_type == UNICAST_PKT) {
       //repeat
@@ -143,13 +152,14 @@ void loop() {
         outPkt->source = inPkt->source;
         outPkt->uid = inPkt->uid;
         memcpy(&outPkt->data[0], &inPkt->data[0], MAX_PAYLOAD);
-        messageToSend = 1;
+        enqueue(outPkt);
       }
     }
 
     // if its an ack // change color to outpkt
     if(inPkt->packet_type == ACK_PKT && inPkt->destination == NODEID) {
-      changeColour(outPkt);
+      Serial.println("Ack received :)");
+      //changeColour(outPkt);
     }
     
     Serial.print("   [RX_RSSI:");Serial.print(radio.RSSI);Serial.print("]");
@@ -157,15 +167,17 @@ void loop() {
     Blink(LED,3);
   }
 
-  if (messageToSend == 1)
+  if (getQueueSize() > 0)
   {
+    rfpacket_t *sendPkt = dequeue();
     uint8_t msg[PACKET_SIZE];
-    marshal_packet(msg, outPkt);
-    
-    radio.send(outPkt->destination, (const void*)(msg), sizeof(msg));
-    Serial.println();
-    Blink(LED,3);
-    messageToSend = 0;
+    if(marshal_packet(msg, sendPkt)) {
+      Serial.println("Sending Packet: ");
+      printPacket(sendPkt);
+      radio.send(sendPkt->destination, (const void*)(msg), sizeof(msg));
+      Serial.println(freeMemory());
+      Blink(LED,3);
+    }
   }
 }
 

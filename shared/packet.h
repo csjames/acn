@@ -12,6 +12,8 @@
 #define RPT_NODE            'R'
 #define GTW_NODE            'G'
 
+#define OUTBOUND_SIZE        10
+
 typedef struct {
     uint8_t source;
     uint8_t destination;
@@ -27,8 +29,14 @@ typedef struct rfpacket_t : public rfheader_t {
 
 bool unmarshal_packet (rfpacket_t *p, uint8_t msg[61]);
 
-void marshal_packet (uint8_t msg[61], rfpacket_t *p);
+bool marshal_packet (uint8_t msg[61], rfpacket_t *p);
 
 void initPacket(unsigned long y);
 
 bool duplicate_packet(rfheader_t *inc);
+
+void enqueue(rfpacket_t *packet);
+
+rfpacket_t* dequeue();
+
+int getQueueSize();
