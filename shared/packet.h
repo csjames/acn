@@ -1,7 +1,7 @@
 #include <stdint.h>
 
-#define MAX_PAYLOAD 		57
-#define PACKET_SIZE			61
+#define MAX_PAYLOAD 		45
+#define PACKET_SIZE			50
 #define HISTORY_SIZE        16
 
 #define ACK_PKT 			'A'
@@ -15,6 +15,7 @@
 #define OUTBOUND_SIZE        10
 
 typedef struct {
+    uint8_t origin;
     uint8_t source;
     uint8_t destination;
     uint16_t uid;

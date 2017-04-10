@@ -5,6 +5,7 @@
 
 rfheader_t history[HISTORY_SIZE];
 int hIndex = 0;
+uint16_t packetCount = 0;
 
 //void push(rfpacket_t *packet);
 //rfpacket_t dequeue();
@@ -12,6 +13,7 @@ int hIndex = 0;
 bool unmarshal_packet (rfpacket_t *p, uint8_t msg[PACKET_SIZE]){
 	p->packet_type = msg[0];
     p->node_type = msg[1];
+    p->origin = msg[4];
     
     p->uid = (msg[2] << 8) | msg[3];
     
@@ -23,8 +25,12 @@ bool unmarshal_packet (rfpacket_t *p, uint8_t msg[PACKET_SIZE]){
 bool marshal_packet (uint8_t msg[PACKET_SIZE], rfpacket_t *p){
 	msg[0] = p->packet_type;
     msg[1] = p->node_type;
+    msg[4] = p->origin;
     
-    p->uid = rand()%65536;
+    //p->uid = rand()%65536;
+    p->uid = packetCount;
+    packetCount++;
+    
     msg[2] = (p->uid >> 8);
     msg[3] = p->uid;
     
@@ -42,14 +48,15 @@ bool duplicate_packet(rfheader_t *inc) {
     for(int i = 0; i<HISTORY_SIZE; i++) {
         if(history[i].uid == inc->uid &&
            history[i].packet_type == inc->packet_type &&
-           history[i].destination == inc->destination)
+           history[i].destination == inc->destination &&
+           history[i].origin == inc->origin)
             return true;
     }
     return false;
 }
 
 void initPacket(unsigned long y) {
-    srand(y);
+    //srand(y);
 }
 
 
