@@ -88,8 +88,7 @@ void loop() {
     uint8_t msg[PACKET_SIZE];
   }
 
-  if (radio.receiveDone()) //Bug may be here case: pause while sending
-  {
+  if (radio.receiveDone()) {
     if (radio.TARGETID == ACK_ADDRESS) {
       Serial.println("ACK Received through broadcast");
    
