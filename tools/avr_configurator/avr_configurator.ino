@@ -5,7 +5,7 @@
 #define keyLength 16
 #define addressIndex keyStart+keyLength
 
-#define ADDRESS 1
+#define ADDRESS 7
 #define KEY         "wedidntwantaes:("
 
 #define p(x) Serial.println(x)
@@ -64,7 +64,7 @@ void setup() {
   }
   p("");
   p("Address: ");
-  p(atoi(k));
+//  p(atoi(*k));
 
   p("");
   
