@@ -18,8 +18,6 @@ bool unmarshal_packet (rfpacket_t *p, uint8_t msg[PACKET_SIZE]){
     p->origin = msg[4];
     
     uint16_t tUid =(((uint16_t)msg[2]) << 8) | ((uint16_t)msg[3]);
-    Serial.print("UID: ");
-    Serial.println(tUid);
     p->uid = tUid;
     
     bool duplicate = duplicate_packet(p);
@@ -37,8 +35,6 @@ bool marshal_packet (uint8_t msg[PACKET_SIZE], rfpacket_t *p, bool newUid){
 	msg[0] = p->packet_type;
     msg[1] = p->node_type;
     msg[4] = p->origin;
-    Serial.println("ORIGIN");
-    Serial.println(p->origin);
     
     if(newUid) {
         p->uid = packetCount;
@@ -53,20 +49,6 @@ bool marshal_packet (uint8_t msg[PACKET_SIZE], rfpacket_t *p, bool newUid){
     return duplicate_packet(p);
 }
 
-//bool re_marshal_packet (uint8_t msg[PACKET_SIZE], rfpacket_t *p){
-//    msg[0] = p->packet_type;
-//    msg[1] = p->node_type;
-//    msg[4] = p->origin;
-//    
-//    msg[2] = (p->uid >> 8);
-//    msg[3] = p->uid;
-//    Serial.println("marshal uid: ");
-//    Serial.println(p->uid);
-//    memcpy(&msg[PACKET_SIZE-MAX_PAYLOAD],&p->data[0], MAX_PAYLOAD);
-//    
-//    return duplicate_packet(p);
-//}
-
 bool duplicate_packet(rfheader_t *inc) {
     for(int i = 0; i<HISTORY_SIZE; i++) {
         if(history[i].uid == inc->uid &&
@@ -75,23 +57,15 @@ bool duplicate_packet(rfheader_t *inc) {
            history[i].origin == inc->origin)
             return true;
     }
-    Serial.println("No duplicate found for: ");
-    Serial.println(inc->uid);
-    Serial.println(inc->packet_type);
-    Serial.println(inc->destination);
-    Serial.println(inc->origin);
     return false;
 }
 
 void initPacket(unsigned long y) {
-    //srand(y);
 }
 
-
-
 rfpacket_t outbound[OUTBOUND_SIZE];
-int queueSize = 0;
-int queueIndex = -1;
+uint8_t queueSize = 0;
+int16_t queueIndex = -1;
 //NODE *head;
 //NODE *tail;
 
@@ -106,8 +80,6 @@ void enqueue(rfpacket_t *packet) {
     memcpy(&outbound[queueIndex].data[0],&packet->data[0], MAX_PAYLOAD);
     if(queueSize<OUTBOUND_SIZE)
         queueSize++;
-    else
-        Serial.println("Queue full");
 }
 rfpacket_t* dequeue() {
     if(queueSize>0) {
@@ -119,7 +91,6 @@ rfpacket_t* dequeue() {
         return &outbound[outIndex];
     }
     else {
-        Serial.println("Returning 0. Maybe check size before deque?");
         return 0;
     }
 }
@@ -137,7 +108,6 @@ bool enqueueRepeat(rfpacket_t *packet, uint32_t receiveTime) {
         if(repeat[i].uid == packet->uid &&
            repeat[i].destination == packet->destination &&
            repeat[i].origin == packet->origin) {
-            Serial.println("Packet already exists.");
             return false;
         }
     }
@@ -159,7 +129,6 @@ bool enqueueRepeat(rfpacket_t *packet, uint32_t receiveTime) {
             return true;
         }
         else {
-            Serial.println("Repeat Queue full");
             return false;
         }
     }
@@ -180,7 +149,6 @@ rfpacket_t* dequeRepeat(uint32_t curTime) {
         }
     }
     else {
-        Serial.println("Returning 0. Maybe check size before deque?");
         return 0;
     }
 }
@@ -206,4 +174,15 @@ bool handleACK(uint16_t uid, uint8_t from, uint8_t destination) {
         }
     }
     return false;
+}
+
+uint8_t* broadcastAckPacket(rfpacket_t *repeatPacket) {
+  uint8_t bcastAck[4];
+    
+  bcastAck[0] = repeatPacket->destination;
+  bcastAck[1] = repeatPacket->origin;
+  bcastAck[2] = (repeatPacket->uid >> 8);
+  bcastAck[3] = repeatPacket->uid;
+
+  return sbcasttAck;
 }

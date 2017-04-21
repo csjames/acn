@@ -1,8 +1,8 @@
 #include <stdint.h>
 
-#define MAX_PAYLOAD 		27
-#define PACKET_SIZE			32
-#define HISTORY_SIZE        10
+#define MAX_PAYLOAD 		 27
+#define PACKET_SIZE			 32
+#define HISTORY_SIZE         10
 
 #define ACK_PKT 			'A'
 #define BCAST_PKT 			'B'
@@ -20,6 +20,9 @@
 
 #define REPEAT_SIZE          5
 
+#define ACK_ADDRESS          255
+#define BROADCAST_ADDRESS    254
+
 typedef struct {
     uint8_t origin;
     uint8_t source;
@@ -32,7 +35,6 @@ typedef struct {
 } rfheader_t;
 
 typedef struct rfpacket_t : public rfheader_t {
-    //rfheader_t header;
 	uint8_t data[MAX_PAYLOAD];
 };
 
@@ -57,3 +59,5 @@ rfpacket_t* dequeRepeat(uint32_t curTime);
 int getEligibleRepeatSize(uint32_t curTime);
 
 bool handleACK(uint16_t uid, uint8_t from, uint8_t to);
+
+uint8_t* broadcastAckPacket(rfpacket_t *repeatPacket);

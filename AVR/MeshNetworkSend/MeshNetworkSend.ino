@@ -23,15 +23,15 @@ RFM69 radio;
 //#define FLIPPED
 
 #ifdef FLIPPED
-#define RED A0
-#define GREEN A2
-#define BLUE A3
-#define POWER A1
+  #define RED A0
+  #define GREEN A2
+  #define BLUE A3
+  #define POWER A1
 #else
-#define RED A3
-#define GREEN A1
-#define BLUE A0
-#define POWER A2
+  #define RED A3
+  #define GREEN A1
+  #define BLUE A0
+  #define POWER A2
 #endif
 
 char nodeid;
@@ -58,11 +58,8 @@ void setup() {
   outPkt = &out;
   inPkt = &in;
 
-  outPkt->source = nodeid;
-  outPkt->destination = 1;
-
   Serial.begin(SERIAL_BAUD);
-  delay(10);
+  delay(4);
 
   readConfig();
 
@@ -73,43 +70,8 @@ void setup() {
   Serial.println(buff);
 }
 
-byte ackCount = 0;
-uint32_t pktCount = 0;
-
-uint8_t currentIndex = 0;
-
 uint32_t lastTimer;
 void loop() {
-  if (Serial.available() > 0) {
-    String input = Serial.readStringUntil(',');
-    if (input.length() > 0) {
-      Serial.println(input);
-      if (currentIndex > 0)
-        outPkt->data[currentIndex - 1] = input.toInt();
-      else {
-        Serial.println(input.toInt());
-        outPkt->destination = input.toInt();
-      }
-      currentIndex++;
-    }
-  }
-
-  if (currentIndex == 4) {
-    currentIndex = 0;
-    outPkt->packet_type = UNICAST_PKT;
-    outPkt->source = nodeid;
-    outPkt->origin = nodeid;
-    outPkt->tries = 0;
-    outPkt->lastTry = 0;
-
-    Serial.print("Destination: ");
-    char buf[12];
-    itoa(outPkt->destination, buf, 10);
-    Serial.println(buf);
-
-    enqueue(outPkt);
-    Serial.println("Enque :)");
-  }
 
   long tm = millis();
   if (nodeid == 4 && tm - lastTimer >= 3000 ) {
@@ -128,7 +90,7 @@ void loop() {
 
   if (radio.receiveDone()) //Bug may be here case: pause while sending
   {
-    if (radio.TARGETID == 255) {
+    if (radio.TARGETID == ACK_ADDRESS) {
       Serial.println("ACK Received through broadcast");
    
       uint16_t uid;
@@ -149,8 +111,6 @@ void loop() {
       }
       return;
     }
-
-    pktCount++;
 
     uint8_t inBuffer[PACKET_SIZE] = {};
 
@@ -197,18 +157,10 @@ void loop() {
     }
     else if (inPkt->packet_type == UNICAST_PKT) {
       //repeat
-      if(!packetSeen)
+      if(!packetSeen) {
         enqueueRepeat(inPkt, tm + random(100)); // offset to avoid collision.
-      
+      }
     }
-
-    // if its an ack // change color to outpkt
-    if (inPkt->packet_type == ACK_PKT && inPkt->destination == nodeid) {
-      Serial.println("Ack received :)");
-      //changeColour(outPkt);
-    }
-
-    //Serial.print("   [RX_RSSI:");Serial.print(radio.RSSI);Serial.print("]");
   }
 
   uint8_t msg[PACKET_SIZE];
@@ -219,7 +171,6 @@ void loop() {
     
     if ((millis() - sendPkt->lastTry) > RETRY_DELAY && marshal_packet(msg, sendPkt, true) == false) {
       Serial.print("Sending Deque Packet: ");
-      //printPacket(sendPkt);
 
       bool success = radio.sendWithRetry(sendPkt->destination, (const void*)(msg), sizeof(msg));
       if (!success) {
@@ -256,12 +207,7 @@ void loop() {
 }
 
 void broadcastAck(rfpacket_t *repeatPacket) {
-  byte bcastAck[4];
-    
-  bcastAck[0] = repeatPacket->destination;
-  bcastAck[1] = repeatPacket->origin;
-  bcastAck[2] = (repeatPacket->uid >> 8);
-  bcastAck[3] = repeatPacket->uid;
+  uint8_t *bcastAck = broadcastAckPacket(repeatPacket);
 
   radio.send(255, bcastAck, 4);
   delay(25);
@@ -273,13 +219,6 @@ void changeColour(rfpacket_t *pck) {
   analogWrite(RED, 255 - pck->data[0]);
   analogWrite(GREEN, 255 - pck->data[1]);
   analogWrite(BLUE, 255 - pck->data[2]);
-}
-void Blink(byte PIN, int DELAY_MS)
-{
-  pinMode(PIN, OUTPUT);
-  digitalWrite(PIN, HIGH);
-  delay(DELAY_MS);
-  digitalWrite(PIN, LOW);
 }
 
 void printPacket(rfpacket_t *pkt) {
