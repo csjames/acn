@@ -114,23 +114,16 @@ Appropriateness of each
 Routing vs Flooding
 \end_layout
 
-\begin_layout Standard
-Flooding is a simplistic routing algorithm in which incoming packets are
- re-transmitted by each receiving router.
- If flooding is uncontrolled this causes packets to be re transmitted continuous
-ly, creating a broadcast storm, potentially rendering the network unusable.
-\end_layout
-
-\begin_layout Section
-RFM69 Radio Module
-\end_layout
-
 \begin_layout Section
 Difficulties
 \end_layout
 
 \begin_layout Standard
 Initially high unreliability – required data whitening
+\end_layout
+
+\begin_layout Standard
+
 \end_layout
 
 \begin_layout Section
@@ -165,32 +158,6 @@ Initially REDIS was also to be used for publish subscribe methodology however
 Protocol
 \end_layout
 
-\begin_layout Standard
-Each packet sent has a frame counter
-\end_layout
-
-\begin_layout Standard
-this, along with to and from (16 bit) should be unique per message
-\end_layout
-
-\begin_layout Standard
-subject to shallow enough packet memory
-\end_layout
-
-\begin_layout Standard
-only repeat the first time the packet is not in memory – wait a while to
- repeat.
- A known time + a little offset for collision avoidance
-\end_layout
-
-\begin_layout Standard
-send message with retry – if it fails wait a while and try again.
-\end_layout
-
-\begin_layout Standard
-packet records its true origin
-\end_layout
-
 \begin_layout Subsection
 Packet Format
 \end_layout
@@ -204,15 +171,18 @@ Broadcast Packets (BCAST)
 \end_layout
 
 \begin_layout Subsubsection
-Acknowledgment Packets (ACKS)
+Acknowledgement Packets (ACKS)
 \end_layout
 
 \begin_layout Standard
-Acknowledgment packets are often smaller in size than the payload bearing
+Acknowledgement packets are often smaller in size than the payload bearing
  data packets.
  Due to this being a demonstration project we opted to still use a payload
- as although it adds unnecessary packet bloat, causing an increased probability
- of message failure, it also facilitates the transmitting of debug information.
+ as although it adds unnecessary packet bloat, causing an increased network
+ usage, it allows us to record information about the topology of the mesh
+ network.
+ This is done by having each node add its ID to the payload, allowing us
+ to see the hops the packet has taken through the network.
 \end_layout
 
 \begin_layout Section
@@ -222,17 +192,6 @@ Visualisation
 \begin_layout Standard
 Cytoscape.js was used to display the mesh network.
  We are able to trace
-\end_layout
-
-\begin_layout Standard
-\begin_inset CommandInset bibtex
-LatexCommand bibtex
-bibfiles "ref"
-options "plain"
-
-\end_inset
-
-
 \end_layout
 
 \end_body

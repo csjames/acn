@@ -4,7 +4,7 @@
 \begin_header
 \save_transient_properties true
 \origin unavailable
-\textclass article
+\textclass IEEEtran
 \begin_preamble
 \usepackage{stmaryrd}
 \end_preamble
@@ -75,11 +75,11 @@
 \begin_body
 
 \begin_layout Title
-Non-Naive Flooding Mesh Network
+Non-Naive Flooding Mesh Network using the Hope RF RFM69
 \end_layout
 
 \begin_layout Author
-Sidharth Agarwal (sa10g14) and James Adams (ja5g14)
+James Adams (ja5g14, 26824744)
 \end_layout
 
 \begin_layout Abstract
@@ -87,11 +87,46 @@ Flooding is used in many networks to build routing tables, for example in
  Open Shorting Path First routing.
  This is often the prerequisite to sending routed packets which are not
  received by all nodes in the network.
- By creating a mesh network which only uses flooding, this project endevours
- to create a very low computational overhead network, leading to low node
- power usage and efficient broadcasting.
+ By creating a mesh network which only uses flooding, this project endeavors
+ to achieve a low computational overhead , leading to low node power usage
+ and efficient broadcasting, as well as a simple implementation.
  This efficient broadcasting may see usefulness in home automation settings
  where messages may be relevant to all nodes in the network.
+\end_layout
+
+\begin_layout Section
+Introduction
+\end_layout
+
+\begin_layout Section
+Background Reading
+\end_layout
+
+\begin_layout Standard
+Zigbee, LoRa
+\end_layout
+
+\begin_layout Standard
+Appropriateness of each
+\end_layout
+
+\begin_layout Standard
+Routing vs Flooding
+\end_layout
+
+\begin_layout Standard
+Flooding is a simplistic routing algorithm in which incoming packets are
+ re-transmitted by each receiving router.
+ If flooding is uncontrolled this causes packets to be re transmitted continuous
+ly, creating a broadcast storm, potentially rendering the network unusable.
+\end_layout
+
+\begin_layout Section
+Difficulties
+\end_layout
+
+\begin_layout Standard
+Initially high unreliability – required data whitening
 \end_layout
 
 \begin_layout Section
@@ -126,6 +161,32 @@ Initially REDIS was also to be used for publish subscribe methodology however
 Protocol
 \end_layout
 
+\begin_layout Standard
+Each packet sent has a frame counter
+\end_layout
+
+\begin_layout Standard
+this, along with to and from (16 bit) should be unique per message
+\end_layout
+
+\begin_layout Standard
+subject to shallow enough packet memory
+\end_layout
+
+\begin_layout Standard
+only repeat the first time the packet is not in memory – wait a while to
+ repeat.
+ A known time + a little offset for collision avoidance
+\end_layout
+
+\begin_layout Standard
+send message with retry – if it fails wait a while and try again.
+\end_layout
+
+\begin_layout Standard
+packet records its true origin
+\end_layout
+
 \begin_layout Subsection
 Packet Format
 \end_layout
@@ -139,17 +200,15 @@ Broadcast Packets (BCAST)
 \end_layout
 
 \begin_layout Subsubsection
-Acknowledgement Packets (ACKS)
+Acknowledgment Packets (ACKS)
 \end_layout
 
 \begin_layout Standard
-ACK packets are often smaller in size than the payload bearing data packets.
+Acknowledgment packets are often smaller in size than the payload bearing
+ data packets.
  Due to this being a demonstration project we opted to still use a payload
- as although it adds unnecessary packet bloat, causing an increased network
- usage, it allows us to record information about the topology of the mesh
- network.
- This is done by having each node add its ID to the payload, allowing us
- to see the hops the packet has taken through the network.
+ as although it adds unnecessary packet bloat, causing an increased probability
+ of message failure, it also facilitates the transmitting of debug information.
 \end_layout
 
 \begin_layout Section
@@ -159,6 +218,17 @@ Visualisation
 \begin_layout Standard
 Cytoscape.js was used to display the mesh network.
  We are able to trace
+\end_layout
+
+\begin_layout Standard
+\begin_inset CommandInset bibtex
+LatexCommand bibtex
+bibfiles "ref"
+options "plain"
+
+\end_inset
+
+
 \end_layout
 
 \end_body
