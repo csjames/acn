@@ -82,20 +82,44 @@ Non-Naive Flooding Mesh Network using the Hope RF RFM69
 James Adams (ja5g14, 26824744)
 \end_layout
 
+\begin_layout Special Paper Notice
+Advanced Computer Networks, University of Southampton
+\end_layout
+
 \begin_layout Abstract
 Flooding is used in many networks to build routing tables, for example in
  Open Shorting Path First routing.
  This is often the prerequisite to sending routed packets which are not
  received by all nodes in the network.
- By creating a mesh network which only uses flooding, this project endeavors
- to achieve a low computational overhead , leading to low node power usage
- and efficient broadcasting, as well as a simple implementation.
- This efficient broadcasting may see usefulness in home automation settings
- where messages may be relevant to all nodes in the network.
+ By creating a mesh network which uses only flooding, this project endeavors
+ to achieve a low computational and spatial overhead, leading to low node
+ power usage and efficient broadcasting, as well as a simple implementation.
+ This efficient flooding may see usefulness in home automation settings
+ where messages are often relevant to all nodes in the network.
 \end_layout
 
 \begin_layout Section
 Introduction
+\end_layout
+
+\begin_layout Standard
+Low power mesh networks dominate the wireless home automation industry,
+ with protocols such as Z-Wave and Zigbee as well as more ubiquitous consumer
+ protocols such as WiFi.
+ Often the radio modules required to produce devices compatible with these
+ networks are expensive due to licensing fees and high component cost.
+\end_layout
+
+\begin_layout Standard
+This project attempts to overcome the aforementioned issues 
+\end_layout
+
+\begin_layout Standard
+Additionally, the stack size of mesh network protocols such as Zigbee are
+ often large and complicated, requiring higher performance, higher cost,
+ micro controllers.
+ This project aims to avoid the high complexity by not implementing a complicate
+d standard such as IEEE 802.15.4
 \end_layout
 
 \begin_layout Section
@@ -103,7 +127,10 @@ Background Reading
 \end_layout
 
 \begin_layout Standard
-Zigbee, LoRa
+Zigbee, LoRa, Z-Wave <- we desire similiar feature set to z wave.
+ As discussed, zigbee is very complicated wheras z wave is far simpler,
+ faster dev time etc.
+ Its propitiatory though:(
 \end_layout
 
 \begin_layout Standard
@@ -125,12 +152,120 @@ ly, creating a broadcast storm, potentially rendering the network unusable.
 RFM69 Radio Module
 \end_layout
 
+\begin_layout Standard
+The RFM69 is a 'one-dollar' radio transceiver.
+ It can send raw or packetised data, and contains a hardware CRC engine,
+ whitening (as discussed in *), AES-128 and an on-board temperature sensor
+\begin_inset CommandInset citation
+LatexCommand cite
+key "rfm69datasheet"
+
+\end_inset
+
+.
+ Encryption (though symmetric) along with 868MHz transceiver make it appropriate
+ for in home mesh networking due to greater wall penetration, little need
+ for high data rate and crowded 2.4Ghz in household setting.
+ In particular when compared to the NRF24L01 we saw far greater indoor and
+ outdoor range, along with a lower power consumption when sleeping.
+\end_layout
+
+\begin_layout Standard
+Does not build on a standards body.
+ 868Mhz.
+ 
+\end_layout
+
+\begin_layout Standard
+The Open-source hardware Moteino
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Moteino: https://lowpowerlab.com/guide/moteino/
+\end_layout
+
+\end_inset
+
+ design was used as a development board.
+ Printed circuit-boards were fabricated using OSHpark
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+OSHpark PCB: https://oshpark.com/
+\end_layout
+
+\end_inset
+
+ and assembled by my co-author and I.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float figure
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename moteino.png
+	lyxscale 20
+	width 100text%
+
+\end_inset
+
+
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+Moteino
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+This board contains the bare minimum for an ATmega 328p and RFM69.
+ An option regulator is soldered to the board but was bypassed for low power
+ testing.
+ In addition for power testing, the internal oscillator was used, and the
+ board was down-clocked to 8Mhz.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
 \begin_layout Section
 Difficulties
 \end_layout
 
 \begin_layout Standard
-Initially high unreliability – required data whitening
+Initially when testing the network, the payloads sent were empty, causing
+ a large sequence of zero bits in the radio packets.
+ This was further exacerbated by the fact we initially weren't using encryption.
+ This was causing a very poor reliability, with a roughly 70% error rate.
+ After much research it was discovered that the RFM69 has built in data
+ whitening, utilizing linear feedback shift registers (LFSR) to avoid long
+ sequences of the same bit value.
+ Data whitening does not completely alieviate the problem, for example,
+ one could construct a packet which contains the same values as the LFSR,
+ causing all zeroes to be transmitted
+\begin_inset CommandInset citation
+LatexCommand cite
+key "whiteningreason"
+
+\end_inset
+
+.
 \end_layout
 
 \begin_layout Section
@@ -154,11 +289,11 @@ Pub Sub
 \end_layout
 
 \begin_layout Standard
-Initially REDIS was also to be used for publish subscribe methodology however
+Initially Redis was also to be used for publish subscribe methodology however
  we discovered that MQTT was far more useful due to the fact it supports
- Websockets when used in conjunction with the Mosquitto MQTT Broker.
+ Web-sockets when used in conjunction with the Mosquito MQTT Broker.
  Though MQTT does offer data storage through the persistence of topics it
- did not grant us access to the same datatypes as Redis.
+ did not grant us access to the same data structures as Redis, such as set's.
 \end_layout
 
 \begin_layout Section
