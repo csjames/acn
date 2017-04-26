@@ -1,0 +1,639 @@
+#LyX 2.2 created this file. For more info see http://www.lyx.org/
+\lyxformat 508
+\begin_document
+\begin_header
+\save_transient_properties true
+\origin unavailable
+\textclass IEEEtran
+\begin_preamble
+\usepackage{stmaryrd}
+\end_preamble
+\use_default_options true
+\maintain_unincluded_children false
+\language english
+\language_package default
+\inputencoding auto
+\fontencoding global
+\font_roman "default" "default"
+\font_sans "default" "default"
+\font_typewriter "default" "default"
+\font_math "auto" "auto"
+\font_default_family default
+\use_non_tex_fonts false
+\font_sc false
+\font_osf false
+\font_sf_scale 100 100
+\font_tt_scale 100 100
+\graphics default
+\default_output_format default
+\output_sync 0
+\bibtex_command default
+\index_command default
+\paperfontsize default
+\spacing single
+\use_hyperref false
+\papersize default
+\use_geometry false
+\use_package amsmath 1
+\use_package amssymb 1
+\use_package cancel 1
+\use_package esint 1
+\use_package mathdots 1
+\use_package mathtools 1
+\use_package mhchem 1
+\use_package stackrel 1
+\use_package stmaryrd 1
+\use_package undertilde 1
+\cite_engine basic
+\cite_engine_type default
+\biblio_style plain
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\justification true
+\use_refstyle 1
+\index Index
+\shortcut idx
+\color #008000
+\end_index
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\paragraph_indentation default
+\quotes_language english
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\end_header
+
+\begin_body
+
+\begin_layout Title
+Non-Naive Flooding Mesh Network
+\end_layout
+
+\begin_layout Author
+James Adams (ja5g14, 26824744)
+\end_layout
+
+\begin_layout Special Paper Notice
+Advanced Computer Networks, University of Southampton.
+ Source available at https://github.com/csjames/acn
+\end_layout
+
+\begin_layout Abstract
+Flooding is used in many networks to build routing tables, for example in
+ Open Shorting Path First routing.
+ This is often the prerequisite to sending routed packets which are not
+ received by all nodes in the network.
+ By creating a mesh network which uses only flooding, this project endeavors
+ to achieve a low computational and spatial overhead, leading to low node
+ power usage and efficient broadcasting, as well as a simple implementation.
+ This efficient flooding may see usefulness in home automation settings
+ where messages are often relevant to all nodes in the network.
+\end_layout
+
+\begin_layout Section
+Introduction
+\end_layout
+
+\begin_layout Standard
+Low power mesh networks dominate wireless home automation, with protocols
+ such as Z-Wave and Zigbee as well as more ubiquitous consumer protocols
+ such as WiFi being used.
+ Often the radio modules required to produce devices compatible with these
+ networks are expensive due to licensing fees and high component cost.
+\end_layout
+
+\begin_layout Standard
+As discussed by Schmid, T etal, as of 2010, the cost of mesh networks for
+ home automation is four times the predicted price.
+ By using low cost, off-the-shelf, one dollar radio modules and micro-controller
+s, we endeavor to build a very low cost mesh network, for simple home automation.
+\end_layout
+
+\begin_layout Standard
+Additionally, the stack size of mesh network protocols such as Zigbee are
+ often large and complicated, requiring higher performance, higher cost,
+ micro controllers.
+ This project aims to avoid the high complexity by not implementing a complicate
+d standard such as IEEE 802.15.4, as well as minimizing code size through
+ eliminating maintenance of routing tables and the associated logic.
+ To avoid this, a wait-listen-repeat approach to routing packets is taken,
+ with an intentional dependence on increased memory leading to increased
+ network performance.
+\end_layout
+
+\begin_layout Section
+Background Research
+\end_layout
+
+\begin_layout Subsection
+Z-Wave
+\end_layout
+
+\begin_layout Standard
+Z-Wave is a proprietary protocol, used primarily in home automation.
+ Radio modules are produced exclusively by Sigma Designs.
+\end_layout
+
+\begin_layout Standard
+The protocol describes a source-routed mesh network, meaning that the sender
+ specifies the route the packet shall take; a route which is computed at
+ install time
+\begin_inset CommandInset citation
+LatexCommand cite
+key "zwavefam"
+
+\end_inset
+
+.
+ This creates the disadvantage that when devices are moved, the reliability
+ of the network is majorly compromised, and the paths must either be recomputed
+ (requiring a manually initiated reconfiguration), or routed by attempting
+ all other routes.
+\end_layout
+
+\begin_layout Standard
+Z-Wave achieves very low resource requirements and hence requires lower
+ performance devices with a far smaller flash size, when compared to Zigbee
+ devices
+\begin_inset CommandInset citation
+LatexCommand cite
+key "zwavevszigbee"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Subsection
+Zigbee
+\end_layout
+
+\begin_layout Standard
+Zigbee, unlike Z-Wave is an open source network protocol capable of forming
+ mesh and star networks.
+ It uses 802.15.4 for Layer 1 (PHY) and Layer 2 (MAC), and implements its
+ own network and application layer
+\begin_inset CommandInset citation
+LatexCommand cite
+key "zigbee"
+
+\end_inset
+
+.
+ It operates on a range of different frequency bands depending on required
+ application, and is far more resilient than Z-Wave.
+\end_layout
+
+\begin_layout Standard
+The mesh network element of the protocol is self configuring, and self healing,
+ hence nodes can be moved around, join and leave the network, without compromisi
+ng reliability due to static routes
+\begin_inset CommandInset citation
+LatexCommand cite
+key "zwavevszigbee"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+Zigbee specifies different types of devices in its topology.
+ Each network has a single coordinator which manages security and policy,
+ and up to 65535 routers and end devices.
+ Unfortunately a single coordinator adds a single point of failure to the
+ network; a problem which is often dealt with through manufacturer specific
+ protocol extensions.
+\end_layout
+
+\begin_layout Subsection
+Flooding
+\end_layout
+
+\begin_layout Standard
+Flooding is a simplistic routing algorithm in which incoming packets are
+ re-transmitted by each receiving router.
+ If flooding is uncontrolled this causes packets to be re transmitted continuous
+ly, creating a broadcast storm, potentially rendering the network unusable
+\begin_inset CommandInset citation
+LatexCommand cite
+key "Tanenbaum2002"
+
+\end_inset
+
+.
+ Hence a controlled flooding approach is necessary for a stable mesh network.
+\end_layout
+
+\begin_layout Standard
+Subramanian, J produced an exemplary flooding wireless mesh network, UFlood
+\begin_inset CommandInset citation
+LatexCommand cite
+key "uflood"
+
+\end_inset
+
+.
+ It was designed to distribute large over non-IP based protocols.
+ This method uses a complex statistical model to determine link probability
+ to its one hop neighbors, and, like ZWave, assumes nodes are stationary.
+ Additionally the UFlood protocol also assumes few nodes can communicate
+ directly, which is unlikely in a home automation setting.
+\end_layout
+
+\begin_layout Standard
+This solution demonstrates many ideal flooding mesh network properties,
+ however, pays little attention to power consumption and protocol overhead.
+\end_layout
+
+\begin_layout Section
+Development Board
+\end_layout
+
+\begin_layout Section
+RFM69 Radio Module and Development Board
+\end_layout
+
+\begin_layout Standard
+The RFM69 is a 'one-dollar' radio transceiver.
+ It can send raw or packetised data, and contains a hardware CRC engine,
+ whitening (as discussed in 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:Difficulties"
+
+\end_inset
+
+), AES-128 and an on-board temperature sensor
+\begin_inset CommandInset citation
+LatexCommand cite
+key "rfm69datasheet"
+
+\end_inset
+
+.
+ Encryption (though symmetric) along with 868MHz transceiver make it appropriate
+ for in home mesh networking due to greater wall penetration and little
+ need for high data rate.
+ When compared to the NRF24L01
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+NRF24l01 http://www.nordicsemi.com/eng/Products/2.4GHz-RF/nRF24L01
+\end_layout
+
+\end_inset
+
+ we observed a greater indoor and outdoor range, along with a lower power
+ consumption when sleeping.
+\end_layout
+
+\begin_layout Standard
+Unlike Zigbee radios, the RFM69 does not build on a predefined networking
+ standard, and is instead a far simpler module, helping to keep cost and
+ complexity to a minimum.
+\end_layout
+
+\begin_layout Standard
+The Open-source hardware Moteino
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Moteino: https://lowpowerlab.com/guide/moteino/
+\end_layout
+
+\end_inset
+
+ design was used for development.
+ Printed circuit-boards were fabricated using OSHpark
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+OSHpark PCB: https://oshpark.com/
+\end_layout
+
+\end_inset
+
+ and assembled by my co-author and I.
+ A UART arduino boot-loader was used so we had access to the standard arduino
+ tools, and could program the modules quickly.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float figure
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename moteino.png
+	lyxscale 20
+	width 50text%
+
+\end_inset
+
+
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+Moteino
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+This board contains the bare minimum for an ATmega 328p and RFM69.
+ An optional regulator is soldered to the board but was bypassed for low
+ power testing.
+ In addition for power testing, the internal oscillator was used, and the
+ board was down-clocked to 8Mhz.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Protocol Design
+\end_layout
+
+\begin_layout Standard
+The following features were determined based on the properties of the aforementi
+oned protocols, and the desired properties.
+\end_layout
+
+\begin_layout Itemize
+A single node type to avoid master- router-sleepy architecture.
+\end_layout
+
+\begin_layout Itemize
+Acknowledgments for reliability.
+\end_layout
+
+\begin_layout Itemize
+Controlled flooding of packets as opposed to routing
+\end_layout
+
+\begin_layout Itemize
+Message repeating to reach nodes out of range
+\end_layout
+
+\begin_layout Itemize
+Broadcast messages for creating a system with shared state, e.g.
+ multiple lights in a room being set to the same color.
+\end_layout
+
+\begin_layout Itemize
+Low overhead and compiled size to allow for deployment on low cost micro-control
+lers.
+\end_layout
+
+\begin_layout Itemize
+Radio Independent protocol, such that the protocol can be used with a range
+ of low cost modules e.g.
+ NRF24l01, RFM12B, NRF905.
+\end_layout
+
+\begin_layout Itemize
+A more simple forwarding heuristic when compared to UFlood.
+\end_layout
+
+\begin_layout Standard
+Node packet memory.
+\end_layout
+
+\begin_layout Standard
+Each packet sent has contains a 16 bit frame counter.
+ This means that the counter will loop around long after a node's packet
+ memory has forgotten previous packets.
+\end_layout
+
+\begin_layout Standard
+only repeat the first time the packet is not in memory – wait a while to
+ repeat.
+ A known time + a little offset for collision avoidance
+\end_layout
+
+\begin_layout Standard
+send message with retry – if it fails wait a while and try again.
+\end_layout
+
+\begin_layout Standard
+packet records its true origin
+\end_layout
+
+\begin_layout Standard
+The only limit to hop count is the network topology, as there is no packet
+ hop counter.
+\end_layout
+
+\begin_layout Standard
+Unlike Z-Wave, protocol does not need to be aware of 'sleepy' nodes, as
+ there is no route calculation, however flags in the library have been created
+ so that space is not reserved for packet history.
+\end_layout
+
+\begin_layout Standard
+no coordinator.
+ 
+\end_layout
+
+\begin_layout Subsection
+Unicast Packets (UCAST)
+\end_layout
+
+\begin_layout Standard
+Experiments in a household showed that most places were reachable by simple
+ unicast communications.
+ Because of this we determined that this should be prioritized before any
+ repeating occurred.
+ Because of this the initial transport mechanism uses a send-with-retry
+ method to ensure message delivery.
+\end_layout
+
+\begin_layout Standard
+When a node hears a communication not for itself, it records the packet,
+ and waits for an acknowledgment (ACK) to be seen.
+ If an ACK is not seen within a certain amount of time , it re transmits
+ the packet.
+ Again attempting a unicast communication with the target node.
+ This process is detailed in figure *.
+ The time spent waiting to retry is detailed by the simple heuristic below.
+\end_layout
+
+\begin_layout Subsubsection
+Repeating Heuristic
+\end_layout
+
+\begin_layout Standard
+A simple RSSI based heuristic is used for repeating.
+ The delay before repeating a message is inversely proportional to the RSSI
+ of the received packet is lower, the node that transmitted the message
+ is likely further away/ less reachable, and hence is more appropriate for
+ immediate repeating, due to the likelihood that the unicast communication
+ failed.
+ This also means that the delay is likely to be different for nodes repeating
+ the same message, acting to avoid collisions.
+ If one of these nodes receives the ACK for the message during this delay
+ time, the packet is not repeated.
+\end_layout
+
+\begin_layout Standard
+To avoid broadcast storms, nodes do not repeat a message they have already
+ seen.
+ This means that the size of packet memory must increase proportionally
+ with network traffic, as otherwise the message seen buffer will overfill,
+ incorrectly marking packets as not seen, and potentially causing broadcast
+ storms.
+\end_layout
+
+\begin_layout Subsection
+Broadcast Packet (BCAST)
+\end_layout
+
+\begin_layout Standard
+Broadcast packets are sent on address 254, and nodes who receive a BCAST
+ message repeat if they have not yet seen the message.
+ 
+\end_layout
+
+\begin_layout Subsection
+Acknowledgment Packet (ACK)
+\end_layout
+
+\begin_layout Standard
+Acknowledgment packets are often smaller in size than the payload bearing
+ data packets.
+ Due to this being a demonstration project we opted to still use a payload
+ as although it adds packet bloat, increasing the probability of message
+ failure, it also enables the transmitting of debug information.
+ 
+\end_layout
+
+\begin_layout Section
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:Difficulties"
+
+\end_inset
+
+Difficulties
+\end_layout
+
+\begin_layout Standard
+Initially when testing the network, the payloads sent were empty, and a
+ large packet size was used, resulting in a large sequence of zero bits
+ in the radio packets.
+ This was further exacerbated by the fact we initially weren't using encryption
+ and hence most packets were 90% zeroes.
+ 
+\end_layout
+
+\begin_layout Standard
+This caused a very poor reliability, with a 70% error rate.
+ After much research it was discovered that the RFM69 has built in data
+ whitening, utilizing linear feedback shift registers (LFSR) to avoid long
+ sequences of the same bit value.
+ When this feature was enabled, packet transmission through walls increased
+ to above a 99% success rate when sent with two retries.
+\end_layout
+
+\begin_layout Standard
+Data whitening does not completely solve the equal consecutive bits problem,
+ for example, one could construct a packet which contains the same values
+ as the LFSR, causing all zeroes to be transmitted
+\begin_inset CommandInset citation
+LatexCommand cite
+key "whiteningreason"
+
+\end_inset
+
+.
+ Additionally there may be other factors at play reducing reliability, such
+ as distance, and high background noise.
+\end_layout
+
+\begin_layout Standard
+Some time was spent tweaking the default transmit properties of the Radio
+ to get the best reliability inside our home.
+ This involved changing retry time, increasing radio sensitivity, and reducing
+ the bit rate.
+\end_layout
+
+\begin_layout Section
+Technologies Used
+\end_layout
+
+\begin_layout Subsection
+Persistence
+\end_layout
+
+\begin_layout Standard
+For persistence and speed, Redis was used to store previous messages and
+ discovered nodes.
+ This was done due to the many easily accessible data structures available,
+ for example circular queues, allowing the easy storing of the N most recent
+ messages.
+\end_layout
+
+\begin_layout Subsection
+Pub Sub
+\end_layout
+
+\begin_layout Standard
+Initially Redis was also to be used for publish subscribe methodology however
+ we discovered that MQTT was far more useful due to the fact it supports
+ Web-sockets when used in conjunction with the Mosquito MQTT Broker.
+ Though MQTT does offer data storage through the persistence of topics it
+ did not grant us access to the same data structures as Redis, such as set's.
+\end_layout
+
+\begin_layout Section
+Visualization
+\end_layout
+
+\begin_layout Standard
+Cytoscape.js
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Cytoscape.js - A graph visualization library: http://js.cytoscape.org/
+\end_layout
+
+\end_inset
+
+ was used to display the mesh network.
+ We are able to trace
+\end_layout
+
+\begin_layout Standard
+\begin_inset CommandInset bibtex
+LatexCommand bibtex
+bibfiles "ref"
+options "plain"
+
+\end_inset
+
+
+\end_layout
+
+\end_body
+\end_document
