@@ -31,7 +31,6 @@ typedef struct {
     uint32_t lastTry;
     uint16_t uid;
     char packet_type;
-    char node_type;
 } rfheader_t;
 
 typedef struct rfpacket_t : public rfheader_t {

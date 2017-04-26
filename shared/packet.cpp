@@ -14,7 +14,6 @@ uint16_t packetCount = 0;
 
 bool unmarshal_packet (rfpacket_t *p, uint8_t msg[PACKET_SIZE]){
 	p->packet_type = msg[0];
-    p->node_type = msg[1];
     p->origin = msg[4];
     
     uint16_t tUid =(((uint16_t)msg[2]) << 8) | ((uint16_t)msg[3]);
@@ -33,7 +32,6 @@ bool unmarshal_packet (rfpacket_t *p, uint8_t msg[PACKET_SIZE]){
 
 bool marshal_packet (uint8_t msg[PACKET_SIZE], rfpacket_t *p, bool newUid){
 	msg[0] = p->packet_type;
-    msg[1] = p->node_type;
     msg[4] = p->origin;
     
     if(newUid) {

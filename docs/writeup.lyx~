@@ -83,7 +83,8 @@ James Adams (ja5g14, 26824744)
 \end_layout
 
 \begin_layout Special Paper Notice
-Advanced Computer Networks, University of Southampton
+Advanced Computer Networks, University of Southampton.
+ Source available at https://github.com/csjames/acn
 \end_layout
 
 \begin_layout Abstract
@@ -114,7 +115,7 @@ Low power mesh networks dominate wireless home automation, with protocols
 As discussed by Schmid, T etal, as of 2010, the cost of mesh networks for
  home automation is four times the predicted price.
  By using low cost, off-the-shelf, one dollar radio modules and micro-controller
-s, we endeavor to build a very low cost mesh network.
+s, we endeavor to build a very low cost mesh network, for simple home automation.
 \end_layout
 
 \begin_layout Standard
@@ -459,10 +460,6 @@ no coordinator.
 \end_layout
 
 \begin_layout Subsection
-Packet Format
-\end_layout
-
-\begin_layout Subsubsection
 Unicast Packets (UCAST)
 \end_layout
 
@@ -485,7 +482,7 @@ When a node hears a communication not for itself, it records the packet,
  The time spent waiting to retry is detailed by the simple heuristic below.
 \end_layout
 
-\begin_layout Subsubsection*
+\begin_layout Subsubsection
 Repeating Heuristic
 \end_layout
 
@@ -511,16 +508,17 @@ To avoid broadcast storms, nodes do not repeat a message they have already
  storms.
 \end_layout
 
-\begin_layout Subsubsection
+\begin_layout Subsection
 Broadcast Packet (BCAST)
 \end_layout
 
 \begin_layout Standard
-Broadcast packets are sent on address 254, and nodes who receive this message
- re transmit if they have not yet seen the message
+Broadcast packets are sent on address 254, and nodes who receive a BCAST
+ message repeat if they have not yet seen the message.
+ 
 \end_layout
 
-\begin_layout Subsubsection
+\begin_layout Subsection
 Acknowledgment Packet (ACK)
 \end_layout
 
@@ -530,6 +528,7 @@ Acknowledgment packets are often smaller in size than the payload bearing
  Due to this being a demonstration project we opted to still use a payload
  as although it adds packet bloat, increasing the probability of message
  failure, it also enables the transmitting of debug information.
+ 
 \end_layout
 
 \begin_layout Section
