@@ -1,7 +1,7 @@
 package models
 
 const (
-	ACK = "A"
+	ACK = 'A'
 )
 
 type Node string
@@ -9,6 +9,9 @@ type Node string
 type Message struct {
 	Sender      string
 	Destination string
+	Origin      string
 	Payload     []byte
-	Type        string
+	Type        byte
+	UID         uint16
+	Direction   byte
 }

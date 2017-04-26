@@ -7,7 +7,15 @@
 <script src="/js/mqttws31-min.js"></script>
 <script src="/js/jquery.min.js"></script>
 <body>
-<div class="container">
+
+<div style="width:25%; height:80%; position: absolute"> 
+  <h2>Message Stream</h2>
+  <div id="stream" style="height:100%%; width: 100%; overflow:auto;">
+  </div>
+</div> 
+</div>
+
+<div style="margin-left:25%;" class="container">
 	<h2>Mesh Network Visualisation</h2>
 	<div>
 		<select id="nodeids">
@@ -15,10 +23,25 @@
 		  <option value="2">Node 2</option>
 		  <option value="3">Node 3</option>
 		  <option value="4">Node 4</option>
+		  <option value="5">Node 5</option>
+		  <option value="6">Node 6</option>
+		  <option value="7">Node 7</option>
+		  <option value="8">Node 8</option>
+		  <option value="9">Node 9</option>
+		  <option value="10">Node 10</option>
+		  <option value="11">Node 11</option>
+		  <option value="12">Node 12</option>
+		  <option value="13">Node 13</option>
+		  <option value="14">Node 14</option>
+		  <option value="15">Node 15</option>
+		  <option value="16">Node 16</option>
+		  <option value="17">Node 17</option>
+		  <option value="18">Node 18</option>
+		  <option value="19">Node 19</option>
+		  <option value="20">Node 20</option>
 		</select>
 		<input id="color" class="jscolor" value="ab2567">
 		<button id="sendColor" class="button">Send Color</button>
-		<button id="requestColor" class="button">Request Message</button>
 		<button id="broadcastColor" class="button">Broadcast Message</button>
 
 	</div>
