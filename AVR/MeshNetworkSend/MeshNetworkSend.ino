@@ -114,8 +114,8 @@ void loop() {
   long tm = millis();
   if (nodeid == 4 && tm - lastTimer >= 3000 ) {
     lastTimer = tm;
-    outPkt->destination = 1;
-    outPkt->packet_type = UNICAST_PKT;
+    outPkt->destination = 254;
+    outPkt->packet_type = BCAST_PKT;
     outPkt->source = nodeid;
     outPkt->origin = nodeid;
     outPkt->data[0] = random(255);
@@ -128,6 +128,7 @@ void loop() {
 
   if (radio.receiveDone()) //Bug may be here case: pause while sending
   {
+    bool broadcast = false;
     if (radio.TARGETID == 255) {
       Serial.println("ACK Received through broadcast");
    
@@ -149,6 +150,10 @@ void loop() {
       }
       return;
     }
+    else if(radio.TARGETID == 254) {
+      Serial.println("Broadcast packet received");
+      broadcast = true;
+    }
 
     pktCount++;
 
@@ -161,7 +166,8 @@ void loop() {
     bool notForUs;
     uint8_t targetID = radio.TARGETID;
     uint8_t senderID = radio.SENDERID;
-    if (radio.ACK_REQUESTED && targetID == nodeid) {
+    
+    if (radio.ACK_REQUESTED && targetID == nodeid && !broadcast) {
       char uid[2];
       uid[0] = inBuffer[2];
       uid[1] = inBuffer[3];
@@ -184,6 +190,8 @@ void loop() {
     Serial.print("["); Serial.print(inPkt->uid); Serial.println("]");
     Serial.print("Seen Packet: ");
     Serial.println(packetSeen);
+    Serial.print("Packet type:");
+    Serial.println(inPkt->packet_type);
     Serial.print("Not for us: ");
     Serial.println(notForUs);
     //printPacket(inPkt);
@@ -208,6 +216,14 @@ void loop() {
       //changeColour(outPkt);
     }
 
+    //if its a broadcast, change color and queue it
+    if(inPkt->packet_type == BCAST_PKT) {
+      if(!packetSeen) {
+        changeColour(inPkt);
+        enqueueRepeat(inPkt, tm + random(100));
+      }
+    }
+
     //Serial.print("   [RX_RSSI:");Serial.print(radio.RSSI);Serial.print("]");
   }
 
@@ -230,7 +246,6 @@ void loop() {
           sendPkt->tries++;
         }
       } else {
-
         Serial.println("Unicast Success");
         broadcastAck(sendPkt);
       }
