@@ -1,19 +1,21 @@
 package main
 
 import (
-	MQTT "github.com/eclipse/paho.mqtt.golang"
 	"github.com/tarm/serial"
 	"gopkg.in/redis.v5"
 
 	"bufio"
 	"configs"
 	"encoding/json"
+	"github.com/gorilla/websocket"
 	"io/ioutil"
 	"log"
 	"models"
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
+	"sync"
 )
 
 var SERIAL_PORT = "/dev/ttyGateway"
@@ -21,7 +23,7 @@ var SERIAL_PORT = "/dev/ttyGateway"
 const (
 	NODE_LIST    = "nodes"
 	MESSAGE_RING = "msgRing"
-	RING_SIZE    = 32
+	RING_SIZE    = 8
 
 	OUTBOUND = "messages/outbound"
 	INBOUND  = "messages/inbound"
@@ -35,38 +37,15 @@ type Status struct {
 var status *Status
 var client *redis.Client
 var port *serial.Port
-var mqttClient MQTT.Client
 
-//define a function for the default message handler
-func f(client MQTT.Client, msg MQTT.Message) {
-	log.Printf("TOPIC: %s\n", msg.Topic())
-	log.Printf("MSG: %s\n", msg.Payload())
-
-	pl := msg.Payload()
-
-	m := models.Message{}
-	err := json.Unmarshal(pl, &m)
-
-	if err != nil {
-		log.Println(err)
-		return
-	}
-
-	header := make([]byte, 4, 4)
-
-	header[0] = m.Sender[0]
-	header[1] = m.Destination[0]
-	header[2] = m.Type[0]
-
-	outbound := append(header, m.Payload...)
-
-	log.Println(outbound)
-}
+var connections map[*websocket.Conn]bool
+var connLock sync.Mutex
 
 func main() {
-	configs.Init(f)
+	connections = make(map[*websocket.Conn]bool)
 
 	var err error
+
 	s, err := serial.OpenPort(configs.SERIAL_CONFIG)
 	if err != nil {
 		log.Println(err)
@@ -86,17 +65,6 @@ func main() {
 
 	log.Println("Connected to redis")
 
-	//create and start a client using the above ClientOptions
-	mqttClient = MQTT.NewClient(configs.MQTT_CONFIG)
-	if token := mqttClient.Connect(); token.Wait() && token.Error() != nil {
-		panic(token.Error())
-	}
-
-	if token := mqttClient.Subscribe(OUTBOUND, 0, nil); token.Wait() && token.Error() != nil {
-	 	log.Println(token.Error())
-	 	os.Exit(1)
-	}
-
 	stat := Status{}
 	status = &stat
 
@@ -105,9 +73,42 @@ func main() {
 	http.Handle("/current", http.HandlerFunc(Current))
 	http.Handle("/clearNodes", http.HandlerFunc(ClearNodes))
 	http.Handle("/clearMessages", http.HandlerFunc(ClearMessages))
-
+	http.Handle("/sub", http.HandlerFunc(WSHandler))
 	log.Println("Listening...")
 	http.ListenAndServe(":3000", nil)
+}
+
+func WSHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Header.Get("Origin") != "http://"+r.Host {
+		http.Error(w, "Origin not allowed", 403)
+		return
+	}
+	conn, err := websocket.Upgrade(w, r, w.Header(), 1024, 1024)
+	if err != nil {
+		http.Error(w, "Could not open websocket connection", http.StatusBadRequest)
+	}
+
+	connections[conn] = true
+
+	go echo(conn)
+}
+
+func echo(conn *websocket.Conn) {
+	for {
+		m := models.Message{}
+
+		err := conn.ReadJSON(&m)
+		if err != nil {
+			log.Println("WS Closing...")
+			connLock.Lock()
+			delete(connections, conn)
+			connLock.Unlock()
+			return
+		}
+
+		log.Printf("Got message: %#v\n", m)
+		// echo message out here :)
+	}
 }
 
 func SendMessage(w http.ResponseWriter, r *http.Request) {
@@ -125,6 +126,21 @@ func SendMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var msg = make([]byte, 29, 29)
+	dest, err := strconv.ParseUint(message.Destination, 10, 64)
+	if err != nil {
+		log.Println("Destination in bad form")
+		return
+	}
+
+	msg[0] = byte(dest)
+	msg[1] = message.Type
+
+	for i := 0; i < len(message.Payload); i++ {
+		msg[i+2] = message.Payload[i]
+	}
+
+	port.Write(msg)
 }
 
 func Current(w http.ResponseWriter, r *http.Request) {
@@ -140,7 +156,7 @@ func ClearNodes(w http.ResponseWriter, r *http.Request) {
 	log.Println("Clearing Nodes")
 
 	client.Del(NODE_LIST)
-	client.SAdd(NODE_LIST, "1")
+	client.SAdd(NODE_LIST, "13")
 }
 
 func ClearMessages(w http.ResponseWriter, r *http.Request) {
@@ -176,18 +192,14 @@ func getMessagesFromRedis() (messages []*models.Message) {
 }
 
 func handleNewMessage(message *models.Message) {
-	client.SAdd(NODE_LIST, message.Sender)
+	log.Println("handling message")
+
+	if message.Sender != "0" {
+		client.SAdd(NODE_LIST, message.Sender)
+	}
 	client.SAdd(NODE_LIST, message.Destination)
-
-	if message.Type == models.ACK {
-		for _, c := range message.Payload {
-
-			nId := strconv.FormatUint(uint64(c), 10)
-
-			if c != 0 {
-				client.SAdd(nId)
-			}
-		}
+	if message.Origin != "0" {
+		client.SAdd(NODE_LIST, message.Origin)
 	}
 
 	nodes := getNodesFromRedis()
@@ -200,6 +212,10 @@ func handleNewMessage(message *models.Message) {
 		client.LPop(MESSAGE_RING)
 		client.RPush(MESSAGE_RING, msgString)
 	}
+
+	for c, _ := range connections {
+		c.WriteJSON(message)
+	}
 }
 
 func scanFromSerial() {
@@ -211,35 +227,44 @@ func scanFromSerial() {
 
 	for scanner.Scan() {
 		msg := scanner.Text()
+		log.Print("received: ")
 		log.Println(msg)
-		//TO:FROM:TYPE:NODETYPE:PAYLOAD
-		// we have a true pcket
-		if len(msg) >= 4 {
-			message := models.Message{}
 
-			source := uint8(msg[0])
-			sourceNice := strconv.FormatUint(uint64(source), 10)
-
-			destination := uint8(msg[1])
-			destinationNice := strconv.FormatUint(uint64(destination), 10)
-
-			message.Sender = sourceNice
-			message.Destination = destinationNice
-
-			message.Type = string(msg[2])
-
-			message.Payload = []byte(msg[4:])
-
-			messageJSON, err := json.Marshal(message)
-
-			if err != nil {
-				log.Println(err)
-				break
-			}
-
-			token := mqttClient.Publish(INBOUND, 0, false, messageJSON)
-			token.Wait()
+		// i ingoing
+		// r repeat
+		// o outgoing
+		if msg[0] != 'i' && msg[0] != 'r' && msg[0] != 'o' {
+			log.Println("Aint for us.")
+			continue
 		}
+
+		msgPkt := models.Message{}
+		msgPkt.Direction = msg[0]
+
+		parts := strings.Split(msg[3:], "^^")
+
+		if len(parts) != 6 {
+			log.Println("Not enough fields :(")
+			continue
+		}
+
+		msgPkt.Origin = parts[0]
+		msgPkt.Sender = parts[1]
+		msgPkt.Destination = parts[2]
+
+		uid, err := strconv.Atoi(parts[3])
+
+		if err != nil {
+			log.Println("Error parsing the UID")
+			continue
+		}
+
+		msgPkt.UID = uint16(uid)
+
+		msgPkt.Type = parts[4][0]
+		msgPkt.Payload = []byte(parts[5])
+
+		handleNewMessage(&msgPkt)
 	}
 
 	if err := scanner.Err(); err != nil {

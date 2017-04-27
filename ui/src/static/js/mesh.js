@@ -8,7 +8,6 @@ function getRandomColor() {
 }
 
 $('#sendColor').on('click', function() {
-	var r = confirm("Confirm clear messages");
 	if (r == true) {
 		var color = $("#color").val()
 	    
@@ -16,10 +15,8 @@ $('#sendColor').on('click', function() {
 });
 
 $('#broadcastColor').on('click', function() {
-	var r = confirm("Confirm clear messages");
 	if (r == true) {
 		var color = $("#color").val()
-	    
 	}
 });
 
@@ -46,6 +43,39 @@ var edges =[];
 var network;
 var state;
 
+function prependMessage(message) {
+	var direction = String.fromCharCode(message.Direction);
+	console.log("Direction: " + direction);
+	switch(direction) {
+		case 'i':
+			direction = "incoming";
+			break
+		case 'r':
+			direction = "repeated";
+			break
+		case 'o':
+			direction = "outbound";
+			break
+	}
+
+	var s = String.fromCharCode(message.Type) + " " + direction + " To: " + message.Destination + " From: " + message.Sender + " Origin: " + message.Origin;
+	$('#stream').prepend(s + "<br>");
+}
+
+// darkness kind of stays. need to sort that out.
+function addMessageStyle(message) {
+	prependMessage(message)
+	console.log("e"+message.Sender+message.Destination)
+	gray = (239-24*state.Messages.indexOf(message)).toString(16);
+
+	var color;
+	var type = String.fromCharCode(message.Type);
+	console.log("TYPE: " + type);
+	color = "#" + gray + gray + gray;
+	console.log("Color : " + color)
+	network.$("#e" + message.Sender + message.Destination).style("line-color", color);
+}
+
 $(function(){ // on dom ready
 
 	$('#nodeids').empty();
@@ -68,7 +98,6 @@ $(function(){ // on dom ready
 
 		network = cytoscape({
 		  container: document.getElementById('mesh'),
-
 		  style: [
 		    {
 		      selector: 'node',
@@ -106,49 +135,52 @@ $(function(){ // on dom ready
 		  }
 		});
 
-		network.$("#1").style("width","70px");
-		network.$("#1").style("height","70px");
-
+		network.$("#13").style("width","50px");
+		network.$("#13").style("height","50px");
 
 		data.Messages.forEach(function (message) {
-	    	console.log("e"+message.Sender+message.Destination)
-	    	gray = (239-16*state.Messages.indexOf(message)).toString(16);
-	    	color = "#" + gray + gray + gray
-	    	console.log(color)
-	    	network.$("#e" + message.Sender + message.Destination).style("line-color", color);
+			addMessageStyle(message);
 	    });
 	});
 
-		// Create a client instance
-	client = new Paho.MQTT.Client("127.0.0.1", 9900, "clientId");
+	var socket = new WebSocket('ws://' + window.location.host + "/sub");
 
-	// set callback handlers
-	client.onConnectionLost = onConnectionLost;
-	client.onMessageArrived = onMessageArrived;
+	socket.onopen = function(event) {
+	  console.log("Connected to server.")
+	};
 
-	// connect the client
-	client.connect({onSuccess:onConnect});
+	// Handle messages sent by the server.
+	socket.onmessage = function(event) {
+	  console.log("received.")
+	  var data = event.data;
+	  var message = JSON.parse(data);
 
-
-	// called when the client connects
-	function onConnect() {
-	  // Once a connection has been made, make a subscription and send a message.
-	  console.log("onConnect");
-	  client.subscribe("World");
-	  message = new Paho.MQTT.Message("Hello");
-	  message.destinationName = "World";
-	  client.send(message);
-	}
-
-	// called when the client loses its connection
-	function onConnectionLost(responseObject) {
-	  if (responseObject.errorCode !== 0) {
-	    console.log("onConnectionLost:"+responseObject.errorMessage);
+	  network.add({ group: "nodes" , data: {id: message.Sender}});
+	  network.add({ group: "nodes" , data: {id: message.Destination}});
+	  if (message.Origin !== "0") {
+	  	network.add({ group: "nodes" , data: {id: message.Origin}});
 	  }
-	}
 
-	// called when a message arrives
-	function onMessageArrived(message) {
-	  console.log("onMessageArrived:"+message.payloadString);
-	}
+	  prependMessage(message);
+
+	  $.get('/current', function(data, status) {
+		data = JSON.parse(data)
+		state = data;
+	    console.log(JSON.stringify(data));
+
+	    data.Messages.forEach(function (message) {
+	    	console.log("e"+message.Sender+message.Destination)
+	    	edges.push({data: { id: "e"+message.Sender+message.Destination,source: message.Sender, target: message.Destination }});
+	    });
+
+		network.$("#13").style("width","50px");
+		network.$("#13").style("height","50px");
+
+		network.layout();
+
+		state.Messages.forEach(function (message) {
+			addMessageStyle(message)
+	    });
+	});
+	};
 });

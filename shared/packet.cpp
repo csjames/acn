@@ -73,7 +73,6 @@ void enqueue(rfpacket_t *packet) {
     outbound[queueIndex].destination = packet->destination;
     outbound[queueIndex].uid = packet->uid;
     outbound[queueIndex].packet_type = packet->packet_type;
-    outbound[queueIndex].node_type = packet->node_type;
     outbound[queueIndex].origin = packet->origin;
     memcpy(&outbound[queueIndex].data[0],&packet->data[0], MAX_PAYLOAD);
     if(queueSize<OUTBOUND_SIZE)
@@ -118,7 +117,6 @@ bool enqueueRepeat(rfpacket_t *packet, uint32_t receiveTime) {
             repeat[i].destination = packet->destination;
             repeat[i].uid = packet->uid;
             repeat[i].packet_type = packet->packet_type;
-            repeat[i].node_type = packet->node_type;
             repeat[i].origin = packet->origin;
             memcpy(&repeat[i].data[0],&packet->data[0], MAX_PAYLOAD);
         }
@@ -182,5 +180,5 @@ uint8_t* broadcastAckPacket(rfpacket_t *repeatPacket) {
   bcastAck[2] = (repeatPacket->uid >> 8);
   bcastAck[3] = repeatPacket->uid;
 
-  return sbcasttAck;
+  return bcastAck;
 }
