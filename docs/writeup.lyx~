@@ -252,11 +252,8 @@ key "uflood"
 
 \begin_layout Standard
 This solution demonstrates many ideal flooding mesh network properties,
- however, pays little attention to power consumption and protocol overhead.
-\end_layout
-
-\begin_layout Section
-Development Board
+ however, pays little attention to power consumption and protocol overhead,
+ instead focusing on high throughput.
 \end_layout
 
 \begin_layout Section
@@ -265,8 +262,8 @@ RFM69 Radio Module and Development Board
 
 \begin_layout Standard
 The RFM69 is a 'one-dollar' radio transceiver.
- It can send raw or packetised data, and contains a hardware CRC engine,
- whitening (as discussed in 
+ It can send raw or packetised data, and contains a hardware CRC engine
+ for error detection, data whitening (as discussed in 
 \begin_inset CommandInset ref
 LatexCommand ref
 reference "sec:Difficulties"
@@ -284,6 +281,8 @@ key "rfm69datasheet"
  Encryption (though symmetric) along with 868MHz transceiver make it appropriate
  for in home mesh networking due to greater wall penetration and little
  need for high data rate.
+ Furthermore, the module supports CSMA, making it appropriate for multi-radio
+ networks.
  When compared to the NRF24L01
 \begin_inset Foot
 status open
@@ -341,7 +340,7 @@ status open
 \begin_inset Graphics
 	filename moteino.png
 	lyxscale 20
-	width 50text%
+	width 40text%
 
 \end_inset
 
@@ -371,12 +370,12 @@ This board contains the bare minimum for an ATmega 328p and RFM69.
 \end_layout
 
 \begin_layout Section
-Required Features
+Protocol Design and Implementation.
 \end_layout
 
 \begin_layout Standard
-The following features were determined based on the properties of the aforementi
-oned protocols, and the desired properties.
+The following features were implemented based on the properties of the aforement
+ioned protocols, as well as the features we desired for the system.
 \end_layout
 
 \begin_layout Itemize
@@ -415,48 +414,170 @@ Radio Independent protocol, such that the protocol can be used with a range
 A more simple forwarding heuristic when compared to UFlood.
 \end_layout
 
-\begin_layout Section
-Protocol Design
-\end_layout
-
-\begin_layout Standard
-Node packet memory.
-\end_layout
-
-\begin_layout Standard
-Each packet sent has contains a 16 bit frame counter.
- This means that the counter will loop around long after a node's packet
- memory has forgotten previous packets.
-\end_layout
-
-\begin_layout Standard
-only repeat the first time the packet is not in memory – wait a while to
- repeat.
- A known time + a little offset for collision avoidance
-\end_layout
-
-\begin_layout Standard
-send message with retry – if it fails wait a while and try again.
-\end_layout
-
-\begin_layout Standard
-packet records its true origin
-\end_layout
-
-\begin_layout Standard
-The only limit to hop count is the network topology, as there is no packet
- hop counter.
-\end_layout
-
 \begin_layout Standard
 Unlike Z-Wave, protocol does not need to be aware of 'sleepy' nodes, as
  there is no route calculation, however flags in the library have been created
  so that space is not reserved for packet history.
+ 
 \end_layout
 
 \begin_layout Standard
-no coordinator.
- 
+Figure 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "fig:Packet-Structure"
+
+\end_inset
+
+ describes the packet structure that was produced.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float figure
+placement H
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename packet_structure.png
+	lyxscale 50
+	width 50text%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "fig:Packet-Structure"
+
+\end_inset
+
+Packet Structure
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+The payload length of the packet is configurable, up to a total packet size
+ of 64 bytes.
+ The radio module does support packets up to 255 bytes however reliability
+ is drastically reduced.
+ As encryption is done in 32 byte blocks, we opted for a 32 byte packet
+ size to avoid the need for padding.
+ The reader may notice that source and destination, along with CRC are not
+ contained in the packet header.
+ This is due to the fact these properties were handled by the Radio Module
+ using register configuration.
+ The spare field was used for debugging, and has been left unused for future
+ development.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Packets were represented as a C++ structured object.
+ By using struct inheritance we were able to seperate the header from the
+ packet structure, for efficient storage of message information, and easy
+ discarding of payload.
+ Additional fields were defined inside this packet, which are used by the
+ send-with-retry and repeating mechanism.
+ Only the fields in figure 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "fig:Packet-Structure"
+
+\end_inset
+
+ are marshalled into a byte array.
+\end_layout
+
+\begin_layout Standard
+\begin_inset listings
+lstparams "language={C++},basicstyle={\footnotesize},tabsize=4"
+inline false
+status open
+
+\begin_layout Plain Layout
+
+typedef struct {
+\end_layout
+
+\begin_layout Plain Layout
+
+    uint8_t origin;
+\end_layout
+
+\begin_layout Plain Layout
+
+    uint8_t source;
+\end_layout
+
+\begin_layout Plain Layout
+
+    uint8_t destination; 
+\end_layout
+
+\begin_layout Plain Layout
+
+    uint8_t tries; // number of send attempts
+\end_layout
+
+\begin_layout Plain Layout
+
+    uint32_t lastTry; //time of last send attempt
+\end_layout
+
+\begin_layout Plain Layout
+
+    uint16_t uid;
+\end_layout
+
+\begin_layout Plain Layout
+
+    char packet_type;// A, B, U (ack, broadcast, unicast)
+\end_layout
+
+\begin_layout Plain Layout
+
+} rfheader_t;
+\end_layout
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\begin_layout Plain Layout
+
+typedef struct rfpacket_t : public rfheader_t {
+\end_layout
+
+\begin_layout Plain Layout
+
+	uint8_t data[MAX_PAYLOAD];
+\end_layout
+
+\begin_layout Plain Layout
+
+};
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Subsection
@@ -468,8 +589,10 @@ Experiments in a household showed that most places were reachable by simple
  unicast communications.
  Because of this we determined that this should be prioritized before any
  repeating occurred.
- Because of this the initial transport mechanism uses a send-with-retry
+ Because of this the initial transport mechanism uses a send-wait-retry
  method to ensure message delivery.
+ If the built in send with retry failed, the message to be sent was re en
+ queued and sent after a small delay.
 \end_layout
 
 \begin_layout Standard
@@ -478,8 +601,16 @@ When a node hears a communication not for itself, it records the packet,
  If an ACK is not seen within a certain amount of time , it re transmits
  the packet.
  Again attempting a unicast communication with the target node.
- This process is detailed in figure *.
- The time spent waiting to retry is detailed by the simple heuristic below.
+ This process is detailed in figure 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "fig:Hierarchy-and-Supported"
+
+\end_inset
+
+.
+ The time spent waiting to retry is calculated using the simple heuristic
+ below.
 \end_layout
 
 \begin_layout Subsubsection
@@ -506,6 +637,75 @@ To avoid broadcast storms, nodes do not repeat a message they have already
  with network traffic, as otherwise the message seen buffer will overfill,
  incorrectly marking packets as not seen, and potentially causing broadcast
  storms.
+ This does however create an easy way to increase the performance of the
+ network, simply buy microprocessors with larger memories.
+\end_layout
+
+\begin_layout Standard
+Figure 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "fig:Hierarchy-and-Supported"
+
+\end_inset
+
+ provides a visualization of this heuristics data flow.
+ An example topology for each case is also provided.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float figure
+placement H
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename heuristic.png
+	lyxscale 40
+	width 45text%
+
+\end_inset
+
+
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "fig:Hierarchy-and-Supported"
+
+\end_inset
+
+Hierarchy and Supported Topology.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+Nodes with solid lines between them can communicate directly without repeating.
+ Dotted lines show nodes which cannot directly communicate.
+\begin_inset Newline newline
+\end_inset
+
+If the distance between nodes is taken to be the sole indicator of RSSI,
+ a message from node D to node A would be repeated by node B with a higher
+ priority than a message from node C to node A, as the transmitted packet
+ would have a lower RSSI.
+ 
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Subsection
@@ -528,6 +728,25 @@ Acknowledgment packets are often smaller in size than the payload bearing
  Due to this being a demonstration project we opted to still use a payload
  as although it adds packet bloat, increasing the probability of message
  failure, it also enables the transmitting of debug information.
+ 
+\end_layout
+
+\begin_layout Standard
+When using the RFM69, these ACK packets are broadcast in conjunction to
+ the built in hardware ACKs.
+ This is because RFM69 modules cannot receive hardware acknowledgments not
+ sent to their address, and these ACKs can only be sent to the last received
+ from address.
+ By keeping ACK packets small, we increase the chance of a successful ACK
+ message, hence ACKS contain the first 5 bytes of the header in figure figure
+ 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "fig:Packet-Structure"
+
+\end_inset
+
+.
  
 \end_layout
 
@@ -582,11 +801,30 @@ Some time was spent tweaking the default transmit properties of the Radio
 \end_layout
 
 \begin_layout Section
-Technologies Used
+Visualization and Debugging
+\end_layout
+
+\begin_layout Standard
+For debugging, an LPC11u68 Cortex M0+
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+LPC11u68 Board: http://uk.farnell.com/nxp/om13058/lpcxpresso-board-lpc11u68-mcu/dp
+/2399860
+\end_layout
+
+\end_inset
+
+ board was used with the MBED framework.
+ This module has a far larger memory, higher clock speed, and a very fast
+ UART interface, making it suitable for observations of all messages sent
+ through the network.
+ 
 \end_layout
 
 \begin_layout Subsection
-Persistence
+Architecture
 \end_layout
 
 \begin_layout Standard
@@ -597,16 +835,9 @@ For persistence and speed, Redis was used to store previous messages and
  messages.
 \end_layout
 
-\begin_layout Subsection
-Pub Sub
-\end_layout
-
 \begin_layout Standard
-Initially Redis was also to be used for publish subscribe methodology however
- we discovered that MQTT was far more useful due to the fact it supports
- Web-sockets when used in conjunction with the Mosquito MQTT Broker.
- Though MQTT does offer data storage through the persistence of topics it
- did not grant us access to the same data structures as Redis, such as set's.
+Web Sockets were used for communication between the server and web interface.
+ This allowed node states to be dynamically updated as messages came though.
 \end_layout
 
 \begin_layout Section
@@ -614,7 +845,7 @@ Visualization
 \end_layout
 
 \begin_layout Standard
-Cytoscape.js
+Cytoscape.js, a graph visualisation library
 \begin_inset Foot
 status open
 
@@ -625,7 +856,6 @@ Cytoscape.js - A graph visualization library: http://js.cytoscape.org/
 \end_inset
 
  was used to display the mesh network.
- We are able to trace
 \end_layout
 
 \begin_layout Standard
